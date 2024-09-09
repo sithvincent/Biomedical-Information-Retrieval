@@ -2,7 +2,5 @@ __pycache__/
 utils/__pycache__/
 *.jpg
 *.pdf
-helper/config.py
 /record
 /.venv
-/evaluation
