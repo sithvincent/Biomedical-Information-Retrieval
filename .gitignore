@@ -1,0 +1,10 @@
+__pycache__/
+utils/__pycache__/
+*.jpg
+*.pdf
+*.ipynb
+utils/__pycache__/
+helper/config.py
+/record
+/.venv
+/evaluation
