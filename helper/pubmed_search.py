@@ -224,48 +224,49 @@ def get_article_details_from_id(id_list, important_headings_only = True):
         "retmode": "xml",               # Request XML format for easier parsing
         "rettype": "abstract"           # Request abstract type
     }
-
     # Send the EFetch request
-    efetch_response = requests.get(efetch_url, params=efetch_params)
-
+    efetch_response = requests.get(efetch_url, params=efetch_params)    
     if efetch_response.status_code == 200:
-        root = ET.fromstring(efetch_response.content)
-        articles = root.findall(".//PubmedArticle")
-
-        # Improved extraction
-        retrieved_data = {}
-        for article in articles:
-            pmid = article.findtext(".//PMID")
-            title = article.findtext(".//ArticleTitle")
-            abstract = article.findtext(".//AbstractText")            
-            # Extract all MeSH Headings and details for each article
-            mesh_headings = []
-            for mesh_heading in article.findall(".//MeshHeading/DescriptorName"):
-                descriptor_name = mesh_heading.text
-                descriptor_ui = mesh_heading.attrib['UI']     
-                descriptor_major_topic = mesh_heading.attrib.get('MajorTopicYN', 'Not Found')
-                # This one will extract only major article descriptors if important_headings_only is set to True
-                if (important_headings_only and (descriptor_major_topic=='Y')) or not important_headings_only:
-                    mesh_heading_details = {
-                        'Descriptor': descriptor_name,
-                        'Descriptor UI': descriptor_ui,
-                        'Is Major Topic': descriptor_major_topic
-                    }
-                    mesh_headings.append(mesh_heading_details)
-            
-            retrieved_data[pmid] = {
-                'Title': title,
-                'Abstract': abstract,
-                'Mesh Headings': mesh_headings
-            }
-            # print(f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract}\nMeSH Headings: {', '.join(mesh_headings)}\n{'-'*80}\n")
-        return retrieved_data
+        try:
+            root = ET.fromstring(efetch_response.content)
+            articles = root.findall(".//PubmedArticle")
+            # This is the part that parses the returned xml to find the most relevant details for each PMID.
+            retrieved_data = {}
+            for article in articles:
+                pmid = article.findtext(".//PMID")
+                title = article.findtext(".//ArticleTitle")
+                abstract = article.findtext(".//AbstractText")            
+                # Extract all MeSH Headings and details for each article
+                mesh_headings = []
+                for mesh_heading in article.findall(".//MeshHeading/DescriptorName"):
+                    descriptor_name = mesh_heading.text
+                    descriptor_ui = mesh_heading.attrib['UI']     
+                    descriptor_major_topic = mesh_heading.attrib.get('MajorTopicYN', 'Not Found')
+                    # This one will extract only major article descriptors if important_headings_only is set to True
+                    if (important_headings_only and (descriptor_major_topic=='Y')) or not important_headings_only:
+                        mesh_heading_details = {
+                            'Descriptor': descriptor_name,
+                            'Descriptor UI': descriptor_ui,
+                            'Is Major Topic': descriptor_major_topic
+                        }
+                        mesh_headings.append(mesh_heading_details)                    
+                # Put the extracted PMID details into a tidy dictionary
+                retrieved_data[pmid] = {
+                    'Title': title,
+                    'Abstract': abstract,
+                    'Mesh Headings': mesh_headings
+                }
+                # print(f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract}\nMeSH Headings: {', '.join(mesh_headings)}\n{'-'*80}\n")
+            return retrieved_data
+        except:
+            return None
     else:
         print(f"Error fetching articles: {efetch_response.status_code}")
         return None
 
 
 def get_retrieved_article_details_from_query(query, articles_to_retrieve=10, remove_stop_words = False):
+    '''Wrapper function that takes in a query and output article details.'''
     # Get response from entrez first via esearch
     query_response = get_query_response(query, remove_stop_words=remove_stop_words, articles_to_retrieve=articles_to_retrieve)
     translated_query = query_response['esearchresult']['querytranslation']
@@ -305,33 +306,7 @@ def create_article_semantic_neighbourhood(heading_entries:list, article_entries:
 def create_semantic_neighbourhood_query(heading_entries:list, article_entries:list):
     '''
     Takes in one list of filtered heading and article entries each and creates a Boolean requery term out of it.
-    '''
-    # # Extracts out the mesh heading terms that are found in the shortlisted 'heading entries'
-    # filtered_headings = [x['name'] for x in heading_entries]
-    # semantic_neighbourhoods = []
-    # for article_entry in article_entries:
-    #     expansion_set = article_entry['headings']
-    #     if len(expansion_set)!=0:
-    #         chunk_fragments_to_expand = []
-    #         first_term_inserted = False
-    #         for i, val in enumerate(expansion_set):
-    #             # First, vet out mesh terms deemed not relevant to the search
-    #             if val not in filtered_headings:
-    #                 continue
-    #             if first_term_inserted: # first term of set
-    #                 chunk_fragments_to_expand.append(f'AND "{val}"[MeSH Terms]')
-    #                 first_term_inserted = True # this code added here just for safety, logically not necessary
-    #             # elif i == (len(expansion_set)-1): # final term of set
-    #             #     chunk_fragments_to_expand.append(f'AND "{val}"[MeSH Terms])')
-    #             else:
-    #                 chunk_fragments_to_expand.append(f'("{val}"[MeSH Terms]')
-    #                 first_term_inserted = True
-    #                 # chunk_fragments_to_expand.append(f'AND "{val}"[MeSH Terms]')
-    #         if len(chunk_fragments_to_expand)!=0: # 0 will happen if all the fragments are not relevant semantically
-    #             chunk_fragments_to_expand.append(')')
-    #             article_semantic_neighbourhood = ' '.join(chunk_fragments_to_expand)
-    #         # if article_semantic_neighbourhood!= '':
-    #             semantic_neighbourhoods.append(article_semantic_neighbourhood)
+    '''    
     semantic_neighbourhoods = create_article_semantic_neighbourhood(heading_entries, article_entries)
     if semantic_neighbourhoods != []:
         query_with_semantic_neighbourhoods = " OR ".join(semantic_neighbourhoods)
