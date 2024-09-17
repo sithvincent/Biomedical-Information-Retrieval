@@ -1,6 +1,6 @@
 import streamlit as st
 import helper.pubmed_search as pubs
-from helper.test import mocked_heading_entries, mocked_article_entries
+# from helper.test import mocked_heading_entries, mocked_article_entries
 from helper.pubmed_search import QueryExpansionManager
 from helper.config import api_key
 import pandas as pd
@@ -21,8 +21,8 @@ if 'heading_entries_df' not in st.session_state:
     st.session_state.heading_entries_df = []
 if 'article_entries_df' not in st.session_state:
     st.session_state.article_entries_df = []
-if 'semantic_neighbourhood_queries' not in st.session_state:
-    st.session_state.semantic_neighbourhood_queries = ''
+if 'semantic_neighbourhood_query' not in st.session_state:
+    st.session_state.semantic_neighbourhood_query = ''
 if 'requeried_article_entries' not in st.session_state:
     st.session_state.requeried_article_entries = ''
 if 'final_article_entries' not in st.session_state:
@@ -43,10 +43,20 @@ def display_search_results():
     with st.container(border=True):
         st.subheader('Relevant Headings')
         with st.expander('Display Headings', expanded=False):
-            st.table(st.session_state.heading_entries_df)
+            st.dataframe(st.session_state.heading_entries_df)
         st.subheader('Relevant Articles')
-        with st.expander('Display Articles', expanded=False):
-            st.table(st.session_state.article_entries_df)
+        with st.container(height=400, border=True):
+            for _, item in st.session_state.article_entries_df.iterrows():
+                title = item['title']
+                abstract = item['abstract']
+                suitability = item['suitability']
+                link = item['link']
+                st.write('---------------------------------')
+                st.write(f'**{title}**')
+                st.write(f'**Abstract**: {abstract}')
+                st.write(f'**Suitability**: {suitability}')
+                st.link_button('View Article', link)
+            # st.dataframe(st.session_state.article_entries_df)
 
 @st.fragment
 def requery_interface():
@@ -55,28 +65,28 @@ def requery_interface():
     tab1, tab2 = st.tabs(['Suggested Expansion', 'Self Key In'])
     with tab1:
         with st.spinner('Generating query suggestion terms...'):
-            semantic_neighbourhoods = pubs.create_article_semantic_neighbourhood(st.session_state.heading_entries, st.session_state.article_entries)
-            st.session_state.semantic_neighbourhood_queries = pubs.create_semantic_neighbourhood_query(st.session_state.heading_entries, 
+            # semantic_neighbourhoods = pubs.create_article_semantic_neighbourhood(st.session_state.heading_entries, st.session_state.article_entries)
+            st.session_state.semantic_neighbourhood_query = pubs.create_semantic_neighbourhood_query(st.session_state.heading_entries, 
                                                                                                        st.session_state.article_entries)   
         with st.form('submit_semantic_cluster'):     
             st.subheader('Semantic Clusters (Suggested Expansion Term)')
             st.write('The current query is: ')
-            st.write(st.session_state.semantic_neighbourhood_queries)
+            st.write(st.session_state.semantic_neighbourhood_query)
             if st.form_submit_button('Confirm re-submitted query.', type='primary'):
                 with st.spinner('Extracting requery results...'):
-                    _, st.session_state.requeried_article_entries = st.session_state.query_expansion_manager.get_entries_from_query(st.session_state.semantic_neighbourhood_queries, requery = True, 
+                    _, st.session_state.requeried_article_entries = st.session_state.query_expansion_manager.get_entries_from_query(st.session_state.semantic_neighbourhood_query, requery = True, 
                                                                                                                     articles_to_retrieve= 20, remove_stop_words= False)
                 st.session_state.requeried_article_entries_df = pd.DataFrame(st.session_state.requeried_article_entries).drop_duplicates(['name']).sort_values(by=['suitability'], ascending=False)    
                 st.write('**The final suggested articles are**:') 
                 st.session_state.final_article_entries = pd.concat([st.session_state.requeried_article_entries_df, st.session_state.article_entries_df]).drop_duplicates(['name']).sort_values(by=['suitability'], ascending=False)   
-                st.table(st.session_state.final_article_entries.head(10))                          
+                st.dataframe(st.session_state.final_article_entries.head(10))                          
         # with st.form('expanded query'):
         #     total_queries = ''
-        #     semantic_neighbourhood_queries = {}
+        #     semantic_neighbourhood_query = {}
         #     for idx, item in enumerate(semantic_neighbourhoods):
-        #         semantic_neighbourhood_queries[str(idx)] = st.checkbox(str(item), key=str(item))
-        #     # for key, item in semantic_neighbourhood_queries.items():
-        #         if semantic_neighbourhood_queries[str(idx)]:
+        #         semantic_neighbourhood_query[str(idx)] = st.checkbox(str(item), key=str(item))
+        #     # for key, item in semantic_neighbourhood_query.items():
+        #         if semantic_neighbourhood_query[str(idx)]:
         #             total_queries += str(item)
         #     st.write(total_queries)
         #     st.write('Test only')

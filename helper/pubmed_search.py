@@ -106,15 +106,20 @@ class QueryExpansionManager():
             title_abstract = title + abstract
             article_title_abstract_embeddings = self.embed_mesh_headings_preloaded_model(title_abstract)
             article_similarity = cosine_similarity(query_embedding, article_title_abstract_embeddings)[0][0]
+            # link = f'https://pubmed.ncbi.nlm.nih.gov/{key}/'
+            link = f'https://www.ncbi.nlm.nih.gov/pmc/articles/pmid/{key}/'
             # if (article_similarity < title_abstract_threshold) and need_article_filter:
             #     continue
             # else:
             article_entry = {
                 'name': key,
                 'content': title_abstract,
+                'title': title,
+                'abstract': abstract,
                 # 'embeddings': article_title_abstract_embeddings,  # can uncomment for debugging/more details, not needed otherwise
                 'headings': article_headings,
-                'suitability': article_similarity*100
+                'suitability': article_similarity*100,
+                'link': link
             }
             filtered_articles.append(article_entry)
         return filtered_heading_terms, filtered_articles
@@ -122,7 +127,7 @@ class QueryExpansionManager():
     # This is a method that packages an external function in this page and a class-only method to create an end-to-end pipeline
     # Said pipeline takes in queries and returns filtered entries that can be shown on a page to users.
     # def get_filtered_entries_from_query (self, query, requery = False, articles_to_retrieve = 10, remove_stop_words = False, title_abstract_threshold = 0.5, heading_threshold = 0.5):
-    def get_entries_from_query (self, query, requery = False, articles_to_retrieve = 10, remove_stop_words = False, **kwargs):
+    def get_entries_from_query (self, query, requery = False, articles_to_retrieve = 10, remove_stop_words = False, **kwargs)-> list|list:
 
         '''
         Takes in 1) queries and associated arguments and 2) filtering arguments as kwargs and returns a list of filtered heading and article dictionaries respectively. \n
